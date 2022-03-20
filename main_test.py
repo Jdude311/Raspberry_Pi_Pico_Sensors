@@ -4,7 +4,7 @@
 # Original file URL: https://learn.adafruit.com/pages/21765/elements/3084926/download
 
 import time
-import ntptime
+from adafruit_ntp import NTP
 from microcontroller import cpu
 import board
 import busio
@@ -99,15 +99,17 @@ print("Connecting to MQTT broker...")
 io.connect()
 
 # Set up SGP30
-i2c = busio.I2C(board.SCL, board.SDA, frequency=100000)
-sgp30 = adafruit_sgp30.Adafruit_sgp30(i2c)
+i2c = busio.I2C(board.GP21, board.GP20, frequency=100000)
+sgp30 = adafruit_sgp30.Adafruit_SGP30(i2c)
 sgp30.iaq_init()
 sgp30.set_iaq_baseline(0x8973, 0x8AAE)
 
-# Set up timestamps
-ntptime.settime()
+# Set up time via NTP
+ntp = NTP(esp)
+ntp.set_time()
 
 count = 0
+prv_refresh_time = time.monotonic()
 while True:
     # Send a new temperature reading to IO every 30 seconds
     try:
