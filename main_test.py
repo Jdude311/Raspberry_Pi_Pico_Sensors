@@ -4,6 +4,7 @@
 # Original file URL: https://learn.adafruit.com/pages/21765/elements/3084926/download
 
 import time
+import ntptime
 from microcontroller import cpu
 import board
 import busio
@@ -97,17 +98,26 @@ io.add_feed_callback("led", on_led_msg)
 print("Connecting to MQTT broker...")
 io.connect()
 
-# Subscribe to all messages on the led feed
-#io.subscribe("led")
+# Set up SGP30
+i2c = busio.I2C(board.SCL, board.SDA, frequency=100000)
+sgp30 = adafruit_sgp30.Adafruit_sgp30(i2c)
+sgp30.iaq_init()
+sgp30.set_iaq_baseline(0x8973, 0x8AAE)
 
-prv_refresh_time = 0.0
+# Set up timestamps
+ntptime.settime()
+
 count = 0
 while True:
     # Send a new temperature reading to IO every 30 seconds
     try:
         if (time.monotonic() - prv_refresh_time) > 2:
-            # take the cpu's temperature
-            msg = f"Message number: {count}"
+            data = [
+                'Jaden\'s Room', # location
+                time.localtime(), # time
+                sgp30.eCO2 # CO2 reading
+            ]
+            msg = f"{data[0]},{data[1]},{data[2]}"
             # publish it to io
             print("Publishing %s..." % msg)
             io.publish("test", msg)
