@@ -135,7 +135,7 @@ while True:
             # publish it to io
             print("Publishing %s..." % msg)
             print("eCO2: %d ppm" % data[2])
-            io.publish("/test", msg)
+            io.publish("test", msg)
             print("Published!")
             prv_refresh_time = time.monotonic()
             count += 1
@@ -146,7 +146,7 @@ while True:
                 file = open('/lib/calibration.py', 'w')
                 file.write(f"calibration=\{'co2eq_base': {co2eq_base}, 'tvoc_base': {tvoc_base}\}")
             except:
-                io.publish("/error", "SENSOR COULD NOT SAVE CALIBRATION DATA!!!")
+                io.publish("error", "SENSOR COULD NOT SAVE CALIBRATION DATA!!!")
             calibration_refresh_time = time.monotonic()
 
     except (ValueError, RuntimeError) as e:
