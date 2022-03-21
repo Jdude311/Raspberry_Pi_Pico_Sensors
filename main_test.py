@@ -4,6 +4,7 @@
 # Original file URL: https://learn.adafruit.com/pages/21765/elements/3084926/download
 
 import time
+import storage
 from adafruit_ntp import NTP
 from microcontroller import cpu
 import board
@@ -15,6 +16,7 @@ import adafruit_esp32spi.adafruit_esp32spi_socket as socket
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from adafruit_io.adafruit_io import IO_MQTT
 import adafruit_sgp30
+import calibration
 
 ### WiFi ###
 
@@ -102,30 +104,51 @@ io.connect()
 i2c = busio.I2C(board.GP21, board.GP20, frequency=100000)
 sgp30 = adafruit_sgp30.Adafruit_SGP30(i2c)
 sgp30.iaq_init()
-sgp30.set_iaq_baseline(0x8973, 0x8AAE)
 
 # Set up time via NTP
 ntp = NTP(esp)
 ntp.set_time()
 
+# Restore calibration data
+if calibration.calibration["co2eq_base"] is not None and calibration.calibration['tvoc_base'] is not None:
+    sgp30.set_iaq_baseline(calibration.calibration['co2eq_base'], calibration.calibration['tvoc_base'])
+
+# Warm up the sensor
+print("Sensor warming up...")
+for i in range(10):
+    time.sleep(1)
+    print("eCO2: %d ppm" % sgp30.eCO2)
+print("Sensor warmed up!\n")
+
 count = 0
 prv_refresh_time = time.monotonic()
+calibration_refresh_time = time.monotonic()
 while True:
-    # Send a new temperature reading to IO every 30 seconds
     try:
-        if (time.monotonic() - prv_refresh_time) > 2:
+        if (time.monotonic() - prv_refresh_time) > 30:
             data = [
                 'Jaden\'s Room', # location
-                time.localtime(), # time
+                str(time.time()), # time
                 sgp30.eCO2 # CO2 reading
             ]
             msg = f"{data[0]},{data[1]},{data[2]}"
             # publish it to io
             print("Publishing %s..." % msg)
-            io.publish("test", msg)
+            print("eCO2: %d ppm" % data[2])
+            io.publish("/test", msg)
             print("Published!")
             prv_refresh_time = time.monotonic()
             count += 1
+        if (time.monotonic() - calibration_refresh_time) > 3600:
+            try:
+                co2eq_base, tvoc_base = sgp30.baseline_eCO2, sgp30.baseline_TVOC
+                storage.remount("/", readonly=False)
+                file = open('/lib/calibration.py', 'w')
+                file.write(f"calibration=\{'co2eq_base': {co2eq_base}, 'tvoc_base': {tvoc_base}\}")
+            except:
+                io.publish("/error", "SENSOR COULD NOT SAVE CALIBRATION DATA!!!")
+            calibration_refresh_time = time.monotonic()
+
     except (ValueError, RuntimeError) as e:
         print("Failed to connect. Retrying...")
         wifi.reset()
