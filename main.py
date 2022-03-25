@@ -61,11 +61,16 @@ if base_eCO2_saved != bytearray(b'\x00'*6) and base_eCO2_saved != bytearray(b'\x
             int(str(base_eCO2_saved)[12:18], 16), # fucking bastard code ikr
             int(str(base_TVOC_saved)[12:18], 16)  # necessary because i'm stupid and can't get the actual value from bytearray
         )
+print(
+    "**** Baseline values: eCO2 = 0x%x, TVOC = 0x%x"
+    % (sgp30.baseline_eCO2, sgp30.baseline_TVOC)
+)
 del base_eCO2_saved, base_TVOC_saved
 
 # Saves baseline to NVM
 def save_baseline():
-    baseline_eCO2, baseline_TVOC = sgp30.baseline_eCO2, sgp30.baseline_TVOC
+    base = sgp30.get_iaq_baseline() # eCO2, TVOC
+    baseline_eCO2, baseline_TVOC = base[0], base[1]
     microcontroller.nvm[0:6] = bytearray(hex(baseline_eCO2))
     microcontroller.nvm[6:12] = bytearray(hex(baseline_TVOC))
     print(
@@ -75,12 +80,28 @@ def save_baseline():
 
 # Takes reading and saves/prints/sends
 def take_reading():
+    iaq = sgp30.iaq_measure()
+    eCO2, TVOC = iaq[0], iaq[1] # eCO2, TVOC
+    eCO2_reads.append(eCO2)
+    TVOC_reads.append(TVOC)
+
+# Evaluates median. Utility function
+def median(l):
+    l.sort()
+    mid = len(l)//2
+    if len(l) % 2 == 0:
+        return (l[mid]+l[mid+1])//2
+    else:
+        return l[mid]
+
+# Sends readings
+def send_reading():
+    eCO2, TVOC = median(eCO2_reads), median(TVOC_reads)
     location = "Jaden\'s Room"
-    eCO2, TVOC = sgp30.eCO2, sgp30.TVOC
     topic = "test"
     msg = f"{location},{TVOC},{eCO2}"
     broker.publish(topic, msg)
-    print("eCO2: %d ppm \t TVOC: %d ppb" % (eCO2, TVOC))
+    print("*** PUBLISHED: eCO2: %d ppm \t TVOC: %d ppb" % (eCO2, TVOC))
 
 
 
@@ -93,20 +114,31 @@ for i in range(20):
 # Main loop
 read_sec = 0
 base_sec = 0
+eCO2_reads, TVOC_reads = [], []
 while True:
     time.sleep(1)
     read_sec += 1
     base_sec += 1
     try:
         # Take reading every 30 seconds
-        if read_sec > 30:
-            take_reading()
+        if read_sec >= 30:
+            send_reading()
+            eCO2_reads, TVOC_reads = [], []
             read_sec = 0
+        else:
+            take_reading()
+            print("eCO2: %d ppm \t TVOC: %d ppb" % (eCO2_reads[-1], TVOC_reads[-1]))
+
+        if base_sec % 10 == 0:
+            base = sgp30.get_iaq_baseline() # eCO2, TVOC
+            baseline_eCO2, baseline_TVOC = base[0], base[1]
+            print("*** Baseline: " + str(baseline_eCO2) + "\t" + str(baseline_TVOC))
 
         # Save baseline hourly
-        if base_sec > 3600:
+        if base_sec >= 3600:
             save_baseline()
             base_sec = 0
+
     except (ValueError, RuntimeError) as e:
         print("Failed. Retrying.")
         wifi.reset()
