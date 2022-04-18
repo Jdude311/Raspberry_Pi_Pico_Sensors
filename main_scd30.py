@@ -75,7 +75,7 @@ def median(l):
 # Sends readings
 def send_reading():
     CO2, TVOC, temperature, relative_humidity = median(CO2_reads), None, median(temperature_reads), median(relative_humidity_reads)
-    location = "Jaden\'s Room (SCD30)"
+    location = "RDHS 312 (SCD30 TEST 1)"
     topic = "test"
     msg = f"{location},0,{CO2},{temperature},{relative_humidity}"
     broker.publish(topic, msg)
@@ -100,7 +100,7 @@ while True:
     base_sec += 1
     try:
         # Take reading every 30 seconds
-        if read_sec >= 10:
+        if read_sec >= 30:
             send_reading()
             CO2_reads, TVOC_reads, temperature_reads, relative_humidity_reads = [], [], [], []
             read_sec = 0
