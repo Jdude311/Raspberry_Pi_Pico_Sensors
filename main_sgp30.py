@@ -53,14 +53,11 @@ print("Connected to MQTT!")
 
 # Load saved calibration data
 sgp30.iaq_init()
-base_eCO2_saved = microcontroller.nvm[0:6]
-base_TVOC_saved = microcontroller.nvm[6:12]
-if base_eCO2_saved != bytearray(b'\x00'*6) and base_eCO2_saved != bytearray(b'\xff'*6):
-    if base_TVOC_saved != bytearray(b'\x00'*6) and base_TVOC_saved != bytearray(b'\xff'*6):
-        sgp30.set_iaq_baseline(
-            int(str(base_eCO2_saved)[12:18], 16), # fucking bastard code ikr
-            int(str(base_TVOC_saved)[12:18], 16)  # necessary because i'm stupid and can't get the actual value from bytearray
-        )
+raw_base_eCO2_saved = microcontroller.nvm[0:6]
+raw_base_TVOC_saved = microcontroller.nvm[6:12]
+base_eCO2_saved = raw_base_eCO2_saved[0] << 8 | raw_base_eCO2_saved[1]
+base_TVOC_saved = raw_base_TVOC_saved[0] << 8 | raw_base_TVOC_saved[1]
+sgp30.set_iaq_baseline(base_eCO2_saved, base_TVOC_saved)
 print(
     "**** Baseline values: eCO2 = 0x%x, TVOC = 0x%x"
     % (sgp30.baseline_eCO2, sgp30.baseline_TVOC)
@@ -71,8 +68,8 @@ del base_eCO2_saved, base_TVOC_saved
 def save_baseline():
     base = sgp30.get_iaq_baseline() # eCO2, TVOC
     baseline_eCO2, baseline_TVOC = base[0], base[1]
-    microcontroller.nvm[0:6] = bytearray(hex(baseline_eCO2))
-    microcontroller.nvm[6:12] = bytearray(hex(baseline_TVOC))
+    microcontroller.nvm[0:2] = bytearray(baseline_eCO2.to_bytes(2, 'big'))
+    microcontroller.nvm[2:4] = bytearray(baseline_TVOC.to_bytes(2, 'big'))
     print(
         "**** Baseline values: eCO2 = 0x%x, TVOC = 0x%x"
         % (sgp30.baseline_eCO2, sgp30.baseline_TVOC)
@@ -97,7 +94,7 @@ def median(l):
 # Sends readings
 def send_reading():
     eCO2, TVOC = median(eCO2_reads), median(TVOC_reads)
-    location = "Jaden\'s Room"
+    location = "RDHS 312 (SGP30 TEST 1)"
     topic = "test"
     msg = f"{location},{TVOC},{eCO2}"
     broker.publish(topic, msg)
