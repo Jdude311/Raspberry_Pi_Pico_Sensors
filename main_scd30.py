@@ -92,12 +92,10 @@ while True:
 
 # Main loop
 read_sec = 0
-base_sec = 0
 CO2_reads, TVOC_reads, temperature_reads, relative_humidity_reads = [], [], [], []
 while True:
-    time.sleep(1)
-    read_sec += 1
-    base_sec += 1
+    time.sleep(3)
+    read_sec += 3
     try:
         # Take reading every 30 seconds
         if read_sec >= 30:
@@ -109,7 +107,10 @@ while True:
             #print("CO2: %d ppm \t TVOC: %d ppb" % (CO2_reads[-1], TVOC_reads[-1]))
 
     except (ValueError, RuntimeError) as e:
+        microcontroller.reset()
         print("Failed. Retrying.")
         wifi.reset()
         wifi.connect()
         broker.reconnect()
+
+microcontroller.reset()
