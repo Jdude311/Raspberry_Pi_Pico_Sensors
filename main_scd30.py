@@ -107,8 +107,12 @@ while True:
             #print("CO2: %d ppm \t TVOC: %d ppb" % (CO2_reads[-1], TVOC_reads[-1]))
 
     except (ValueError, RuntimeError) as e:
-        microcontroller.reset()
         print("Failed. Retrying.")
+        try:
+            broker.publish("test", "I've got the mass. You're on your own, Noble. Carter out.")
+        except (ValueError, RuntimeError) as e:
+            pass
+        microcontroller.reset()
         wifi.reset()
         wifi.connect()
         broker.reconnect()
