@@ -94,7 +94,7 @@ def median(l):
 # Sends readings
 def send_reading():
     eCO2, TVOC = median(eCO2_reads), median(TVOC_reads)
-    location = "RDHS 312 (SGP30 TEST 1)"
+    location = "RDHS 312 (SGP30 TEST 2)"
     topic = "test"
     msg = f"{location},{TVOC},{eCO2}"
     broker.publish(topic, msg)
